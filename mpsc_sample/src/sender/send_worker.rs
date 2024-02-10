@@ -1,31 +1,46 @@
+use std::io;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::thread;
-use std::time::Duration;
 
-use crate::StatusDB;
+use crate::StatusData;
 
 pub struct SendWorker {
-    mpsc_send: Arc<Mutex<mpsc::Sender<StatusDB>>>,
+    mpsc_sender: Arc<Mutex<mpsc::Sender<StatusData>>>,
 }
 
 impl SendWorker {
-    pub fn new(send: Arc<Mutex<mpsc::Sender<StatusDB>>>) -> Self {
-        Self { mpsc_send: send }
+    pub fn new(sender: Arc<Mutex<mpsc::Sender<StatusData>>>) -> Self {
+        Self {
+            mpsc_sender: sender,
+        }
     }
 
-    pub fn start(&self) {
-        let mpsc_send_clone = self.mpsc_send.clone();
-        let mut index = 0;
+    pub fn start(&mut self) {
+        let mpsc_send_clone = self.mpsc_sender.clone();
 
-        thread::spawn(move || loop {
-            let mut status_db = StatusDB::new();
-            status_db.set_data(index);
-            mpsc_send_clone.lock().unwrap().send(status_db).unwrap();
+        loop {
+            println!("Enter command: ");
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).expect("failed to read");
+            if input.trim().is_empty() {
+                continue;
+            }
 
-            thread::sleep(Duration::from_secs(1));
-            index += 10;
-        });
+            let input = input.trim().to_lowercase();
+
+            // create data
+            let mut status_data = StatusData::new();
+            status_data.set_data(input.clone());
+
+            // println!("Send - {}", status_data.get_data());
+            mpsc_send_clone.lock().unwrap().send(status_data).unwrap();
+
+            if input == "q" {
+                break;
+            }
+        }
+
+        println!("Finish SendWorker");
     }
 }
